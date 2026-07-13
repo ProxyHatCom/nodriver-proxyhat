@@ -1,0 +1,68 @@
+name: Compat (nodriver latest)
+
+# Autonomy watchdog: weekly (and on demand) it installs the newest nodriver and
+# our newest proxyhat SDK, then runs our tests against them. A red run means
+# upstream shipped a breaking change to the CDP Fetch auth surface we rely on —
+# it opens/updates a tracking issue so we notice before users do. The proactive
+# path is Renovate (renovate.json), which opens a version-bump PR that must pass
+# CI before merging.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Install latest upstreams
+        run: pip install --upgrade nodriver proxyhat
+      - name: Import the real nodriver CDP auth surface
+        # Fails loudly if nodriver renamed the Fetch/Network CDP auth primitives.
+        run: |
+          python - <<'PY'
+          import inspect
+          import nodriver
+          from nodriver import cdp
+
+          assert hasattr(nodriver, "start"), "nodriver.start is gone"
+          assert "browser_args" in inspect.signature(nodriver.start).parameters, \
+              "nodriver.start no longer accepts browser_args"
+          for attr in ("enable", "continue_with_auth", "continue_request", "AuthRequired", "RequestPaused"):
+              assert hasattr(cdp.fetch, attr), f"nodriver cdp.fetch.{attr} is gone"
+          assert hasattr(cdp.network, "AuthChallengeResponse"), \
+              "nodriver cdp.network.AuthChallengeResponse is gone"
+          print("nodriver CDP auth surface OK")
+          PY
+      - run: pytest -v
+      - name: Open an issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "Compat break: nodriver@latest / proxyhat@latest";
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: "compat",
+            });
+            const body = `The weekly compatibility check failed against the latest upstream releases.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ["compat"],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues[0].number, body,
+              });
+            }
