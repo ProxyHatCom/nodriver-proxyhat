@@ -123,6 +123,37 @@ class TestEnableProxyAuth:
 
         assert ("fetch.continue_request", {"request_id": "req-2"}) in tab.sent
 
+    def test_handler_swallows_teardown_race_errors(self, fake_nodriver):
+        """A send that fails during shutdown (Fetch disabled / loop closed) is quiet."""
+        tab = FakeTab()
+        run(enable_proxy_auth(tab, "ph-1", "pw"))
+
+        for message in (
+            "Fetch domain is not enabled",
+            "Event loop is closed",
+            "WebSocket is not connected",
+        ):
+
+            async def send(command, _msg=message):
+                raise RuntimeError(_msg)
+
+            tab.send = send
+            # Both handlers fire during teardown; neither should raise.
+            run(tab.handlers[RequestPaused](SimpleNamespace(request_id="r")))
+            run(tab.handlers[AuthRequired](SimpleNamespace(request_id="r")))
+
+    def test_handler_reraises_unexpected_errors(self, fake_nodriver):
+        """A genuine (non-teardown) send failure still propagates."""
+        tab = FakeTab()
+        run(enable_proxy_auth(tab, "ph-1", "pw"))
+
+        async def send(command):
+            raise RuntimeError("Invalid request id")
+
+        tab.send = send
+        with pytest.raises(RuntimeError, match="Invalid request id"):
+            run(tab.handlers[RequestPaused](SimpleNamespace(request_id="r")))
+
 
 class TestProxyhatBrowser:
     def test_applies_proxy_flag_and_wires_auth(self, fake_nodriver):
