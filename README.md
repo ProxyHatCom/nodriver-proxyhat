@@ -7,6 +7,10 @@ Route [nodriver](https://github.com/ultrafunkamsterdam/nodriver) — the success
 [![PyPI](https://img.shields.io/pypi/v/nodriver-proxyhat)](https://pypi.org/project/nodriver-proxyhat/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+> [!TIP]
+> **Recommended proxies — [ProxyHat](https://proxyhat.com?utm_source=github&utm_medium=readme&utm_campaign=nodriver&utm_content=callout) residential IPs.** Every feature in this package is tested end-to-end against ProxyHat and works great. First-class integration; also works with any proxy, or none.
+
+
 ## Why
 
 Chrome's `--proxy-server` flag **can't carry a username and password**, so pointing an undetected browser at a credentialed residential gateway normally means a manual CDP dance. And running a real browser from a datacenter IP gets flagged, CAPTCHA-walled, and blocked anyway — exactly what you're using nodriver to avoid.
