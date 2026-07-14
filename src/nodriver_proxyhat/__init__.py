@@ -12,4 +12,4 @@ __all__ = [
     "proxyhat_browser_args",
     "resolve_credentials",
 ]
-__version__ = "0.1.1"
+__version__ = "0.1.2"
